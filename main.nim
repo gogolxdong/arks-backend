@@ -1,4 +1,6 @@
 import std/[options, json, strutils, tables, times, strformat]
+import std/[random,options, json, parseutils, strutils, strformat, times, tables, sugar, sequtils, os, asynchttpserver]
+import pkg/[ web3,chronos, nimcrypto, eth/keys, stint, puppy,  taskpools, presto ]
 import pkg/[web3,chronos, stint, nimcrypto/keccak, web3/ethtypes]
 
 #PlaceMakerOrder(uint256,address,bytes64,bool,bytes24,bytes128)
@@ -84,10 +86,6 @@ proc listen() {.async.} =
     # await s.unsubscribe()
     # await web3.close()
 
-import std/[random,options, json, parseutils, strutils, strformat, times, tables, sugar, sequtils, os, asynchttpserver]
-import pkg/[ web3,chronos, nimcrypto, eth/keys, stint, puppy,  taskpools, presto ]
-# import pkg/chronos except async, Future, FutureBase
-import contracts
 
 let headers = {"Content-type": "application/json",
     "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Method": "*",
@@ -136,63 +134,13 @@ template getRequired() {.dirty.} =
 var router = RestRouter.init(testValidate)
 router.api(MethodGet,"/{address}") do (`address`:string) -> RestApiResponse:
   {.gcsafe.}:
-    let request = %*{"method":"eth_getStorageAt","params":[snapshotAddress, "0xf", "latest"],"id":1,"jsonrpc":"2.0"}
-    let response = post("https://rpc.tomoweb3.io",@[("Content-Type", "application/json")], $request)
-    var responseBody = parseJson(response.body)["result"].getStr()
-    var length = Uint256.fromHex(responseBody).toInt
-    echo length
-    var users = parseFile("users.json")
-    if length > users.len:
-      useSnapshot:
-        for i in users.len..<length:
-          var user = waitFor snapshot.userList(i.u256).call()
-          users.add(%user)
-    writeFile("users.json", $users)
-
-    let address = `address`.get()
-    var usersJson = newJObject()
-    var timestamp = now().toTime().toUnix()
-    var file = &"users/{address}.json"
-    if fileExists(file):
-        usersJson = parseFile(file)
-        if usersJson.hasKey address:
-          if usersJson[address].hasKey "timestamp":
-            var lastTime = usersJson[address]["timestamp"].getInt
-            var days = (timestamp - lastTime) div 86400
-            if usersJson[address].hasKey "required":
-              var require = 0
-              for r in usersJson[address]["required"]:
-                require += r.getInt()
-              if days >= 1 :
-                  useFlareMain:
-                    var level = waitFor flareMain.myLevel(Address.fromHex address).call()
-                  useSnapshot:
-                    var required = waitFor snapshot.refAmountRequiredPerDay(level).call()
-                  for i in 0..<days:
-                    require += required.toInt
-                    usersJson[address]["required"].add %(required.toInt)
-                  writeFile(file, $usersJson)
-              return RestApiResponse.response($require)
-    else:
-      useFlareMain:
-        var level = waitFor flareMain.myLevel(Address.fromHex address).call()
-      useSnapshot:
-        var required = waitFor snapshot.refAmountRequiredPerDay(level).call()
-      usersJson[address] = %*{"timestamp": timestamp, "required": [required.toInt]}
-      writeFile(file, $usersJson)
-      return RestApiResponse.response($required)
-
-let request = %*{"method":"eth_getStorageAt","params":[snapshotAddress, "0xf", "latest"],"id":1,"jsonrpc":"2.0"}
-let response = post("https://rpc.tomoweb3.io",@[("Content-Type", "application/json")], $request)
-var result = parseJson(response.body)["result"].getStr()
-var length = Uint256.fromHex(result).toInt
-echo result, " ",length
+      return RestApiResponse.response("")
 
 
 
 proc main() =
   var tp = Taskpool.new()
-  tp.spawn listen()
+  discard tp.spawn listen()
   let serverAddress = initTAddress("127.0.0.1:8081")
   var sres = RestServerRef.new(router, serverAddress)
   let server = sres.get()
