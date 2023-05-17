@@ -1,0 +1,5 @@
+--define:release
+--hints:off
+--warnings:off
+--gc:orc
+--threads:on
