@@ -13,8 +13,19 @@ const stakeSignature = "Stake(address executor, uint256 nftType, uint256 tokenId
 const unstakeSignature = "Unstake(address executor, uint256 nftType, uint256  tokenId,uint256 nftTotalValue, uint256 stakePoolId, uint256 time)"
 const finishPlanSignature = "FinishPlan(address executor, uint256 nftType, uint256 tokenId,uint256 nftTotalValue, uint256 totalInterest,uint256 planTermLength,uint256 planRewardsAmount,uint256 time)"
 
-echo &"{buySignature}: 0x{toLowerAscii($keccak256.digest(buySignature))}"
+const buySignatureHash = &"0x{toLowerAscii($keccak256.digest(buySignature))}"
+const BNPLSignatureHash = &"0x{toLowerAscii($keccak256.digest(BNPLSignature))}"
+const repaySignatureHash = &"0x{toLowerAscii($keccak256.digest(repaySignature))}"
+const redeemSignatureHash = &"0x{toLowerAscii($keccak256.digest(redeemSignature))}"
+const liquidationSignatureHash = &"0x{toLowerAscii($keccak256.digest(liquidationSignature))}"
+const borrowSignatureHash = &"0x{toLowerAscii($keccak256.digest(borrowSignature))}"
+const stakeSignatureHash = &"0x{toLowerAscii($keccak256.digest(stakeSignature))}"
+const unstakeSignatureHash = &"0x{toLowerAscii($keccak256.digest(unstakeSignature))}"
+const finishPlanSignatureHash = &"0x{toLowerAscii($keccak256.digest(finishPlanSignature))}"
+
+echo &"{buySignature}: {buySignatureHash}"
 echo &"{BNPLSignature}: 0x{toLowerAscii($keccak256.digest(BNPLSignature))}"
+
 
 contract(Nouns):
     proc Buy( executor: indexed[Address], nftType: indexed[Uint256],  tokenId: indexed[Uint256],   nftTotalValue:Uint256, buyRewardsAmount:Uint256 ,time:Uint256 ) {.event.}
@@ -27,8 +38,166 @@ contract(Nouns):
     proc Unstake(executor:indexed[Address], nftType: indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  stakePoolId:Uint256,  time:Uint256) {.event.}
     proc FinishPlan(executor:indexed[Address], nftType: indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  totalInterest:Uint256, planTermLength:Uint256, planRewardsAmount:Uint256, time:Uint256) {.event.}
 
-
 var nounsBNPL = Address.fromHex("")
+
+template parseCommonValue() {.dirty.} =
+  var executor: Address
+  echo decode(strip0xPrefix j["topics"][1].getStr, 0, executor)
+  echo "executor:",executor
+
+  var nftType: Uint256
+  discard decode(strip0xPrefix j["topics"][2].getStr, 0, nftType)
+  echo "nftType:",nftType
+
+  var tokenId: Uint256
+  discard decode(strip0xPrefix j["topics"][3].getStr, 0, tokenId)
+  echo "tokenId:",tokenId
+
+  var inputData = strip0xPrefix j["data"].getStr
+  var offset = 0
+
+  var nftTotalValue: Uint256
+  offset += decode(inputData, offset, nftTotalValue)
+
+proc parseBuyEvent(j:JsonNode) =
+  parseCommonValue()
+
+  var buyRewardsAmount: Uint256
+  offset += decode(inputData, offset, buyRewardsAmount)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseBNPLEvent(j:JsonNode) =
+  parseCommonValue()
+
+  var downPayment: Uint256
+  offset += decode(inputData, offset, downPayment)
+
+  var totalInterest: Uint256
+  offset += decode(inputData, offset, totalInterest)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseRepayEvent(j:JsonNode) =
+  var executor: Address
+  echo decode(strip0xPrefix j["topics"][1].getStr, 0, executor)
+  echo "executor:",executor
+
+  var nftType: Uint256
+  discard decode(strip0xPrefix j["topics"][2].getStr, 0, nftType)
+  echo "nftType:",nftType
+
+  var tokenId: Uint256
+  discard decode(strip0xPrefix j["topics"][3].getStr, 0, tokenId)
+  echo "tokenId:",tokenId
+
+  var inputData = strip0xPrefix j["data"].getStr
+  var offset = 0
+
+  var planTermLength: Uint256
+  offset += decode(inputData, offset, planTermLength)
+
+  var planTermProgress: Uint256
+  offset += decode(inputData, offset, planTermProgress)
+
+  var repayTotalValue: Uint256
+  offset += decode(inputData, offset, repayTotalValue)
+
+  var repayInterestValye: Uint256
+  offset += decode(inputData, offset, repayInterestValye)
+
+  var dueThisTerm: Uint256
+  offset += decode(inputData, offset, dueThisTerm)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseRedeemEvent(j:JsonNode) =
+  parseCommonValue()
+
+  var redeemFee: Uint256
+  offset += decode(inputData, offset, redeemFee)
+
+  var receivedValue: Uint256
+  offset += decode(inputData, offset, receivedValue)
+
+  var requestTime: Uint256
+  offset += decode(inputData, offset, requestTime)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseLiquidationEvent(j:JsonNode) =
+  parseCommonValue()
+
+  var totalLoanValue:Uint256
+  offset += decode(inputData, offset, totalLoanValue)
+
+  var unpaidLoanValue:Uint256
+  offset += decode(inputData, offset, unpaidLoanValue)
+
+  var liquidationValue:Uint256
+  offset += decode(inputData, offset, liquidationValue)
+
+  var dueThisTerm:Uint256
+  offset += decode(inputData, offset, dueThisTerm)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseBorrowEvent(j:JsonNode) = 
+  parseCommonValue()
+
+  var borrowValue:Uint256
+  offset += decode(inputData, offset, borrowValue)
+
+  var totalInterest:Uint256
+  offset += decode(inputData, offset, totalInterest)
+
+  var planTermLength:Uint256
+  offset += decode(inputData, offset, planTermLength)
+
+  var planRewardsAmount:Uint256
+  offset += decode(inputData, offset, planRewardsAmount)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseStakeEvent(j:JsonNode) = 
+  parseCommonValue()
+
+  var stakePoolId:Uint256
+  offset += decode(inputData, offset, stakePoolId)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseUnstakeEvent(j:JsonNode) = 
+  parseCommonValue()
+
+  var stakePoolId:Uint256
+  offset += decode(inputData, offset, stakePoolId)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
+proc parseFinishPlanEvent(j:JsonNode) = 
+  parseCommonValue()
+
+  var totalInterest:Uint256
+  offset += decode(inputData, offset, totalInterest)
+
+  var planTermLength:Uint256
+  offset += decode(inputData, offset, planTermLength)
+
+  var planRewardsAmount:Uint256
+  offset += decode(inputData, offset, planRewardsAmount)
+
+  var time: Uint256
+  offset += decode(inputData, offset, time)
+
 
 proc listen() {.async.} =
     var web3 = await newWeb3("ws://127.0.0.1:28545/")
@@ -46,25 +215,18 @@ proc listen() {.async.} =
             if web3.subscriptions.len == 0:
                 waitFor web3.close()
                 web3 = waitFor newWeb3("http://127.0.0.1:28545")
-                
-            var orderId: UInt256
-            echo decode(strip0xPrefix j["topics"][1].getStr, 0, orderId)
-            echo "orderId:",orderId
-            var recipient: Address
-            discard decode(strip0xPrefix j["topics"][2].getStr, 0, recipient)
-            echo "recipient:",recipient
-
-            var bundleId: Uint64
-            discard decode(strip0xPrefix j["topics"][3].getStr, 0, bundleId)
-            echo "bundleId:",bundleId
-            var inputData = strip0xPrefix j["data"].getStr
-            var offset = 0
-            var zero: Bool
-            offset += decode(inputData, offset, zero)
-            var boundaryLower: Int24
-            offset += decode(inputData, offset, boundaryLower)
-            var amount: StUint[128]
-            offset += decode(inputData, offset, amount)
+            
+            case j["topics"][0].getStr
+            of buySignatureHash: parseBuyEvent(j)
+            of BNPLSignatureHash: parseBNPLEvent(j)
+            of repaySignatureHash: parseRepayEvent(j)
+            of redeemSignatureHash: parseRedeemEvent(j)
+            of liquidationSignatureHash: parseLiquidationEvent(j)
+            of borrowSignatureHash: parseBorrowEvent(j)
+            of stakeSignatureHash: parseStakeEvent(j)
+            of unstakeSignatureHash: parseUnstakeEvent(j)
+            of finishPlanSignatureHash: parseFinishPlanEvent(j)
+            
             # echo &"{now()}: orderId:{orderId} recipient:{recipient} bundleId:{bundleId} zero:{zero} boundaryLower:{boundaryLower.repr}, amount:{amount.repr}"
             # logs.add(j)
             writeFile("logs.json", $logs)
