@@ -3,21 +3,32 @@ import std/[random,options, json, parseutils, strutils, strformat, times, tables
 import pkg/[ web3,chronos, nimcrypto, eth/keys, stint, puppy,  taskpools, presto ]
 import pkg/[web3,chronos, stint, nimcrypto/keccak, web3/ethtypes]
 
-#PlaceMakerOrder(uint256,address,bytes64,bool,bytes24,bytes128)
-const placeMarketOrderSignature = "PlaceMakerOrder(uint256,address,uint64,bool,int24,uint128)" 
-const swapSignature = "Swap(address,address,int256,int256,uint160,int24)"
+const buySignature = "Buy(address executor, uint256 nftType,  uint256 tokenId,uint256  nftTotalValue, uint256 buyRewardsAmount,uint256 time)"
+const BNPLSignature = "BNPL(address executor, uint256 nftType, uint256 tokenId,uint256 nftTotalValue, uint256 downPayment,uint256 totalInterest,uint256 planTermLength,uint256 planRewardsAmount,uint256 time)"
+const repaySignature = "Repay(address executor, uint256 nftType, uint256 tokenId,uint256 planTermLength, uint256 planTermProgress, uint256 repayTotalValue,  uint256 repayInterestValye,uint256 dueThisTerm,uint256 time)"
+const redeemSignature = "Redeem(address executor, uint256 nftType, uint256 tokenId,uint256 nftTotalValue, uint256 redeemFee, uint256 receivedValue,  uint256 requestTime,uint256 time)"
+const liquidationSignature = "Liquidation(address executor, uint256 nftType, uint256 tokenId,uint256 nftTotalValue, uint256 totalLoanValue, uint256 unpaidLoanValue,  uint256 liquidationValue,  uint256 dueThisTerm,uint256 time)"
+const borrowSignature = "Borrow(address executor, uint256 nftType, uint256 tokenId,uint256 nftTotalValue, uint256 borrowValue, uint256 totalInterest,uint256 planTermLength,uint256 planRewardsAmount,uint256 time)"
+const stakeSignature = "Stake(address executor, uint256 nftType, uint256 tokenId,uint256 nftTotalValue, uint256 stakePoolId, uint256 time)"
+const unstakeSignature = "Unstake(address executor, uint256 nftType, uint256  tokenId,uint256 nftTotalValue, uint256 stakePoolId, uint256 time)"
+const finishPlanSignature = "FinishPlan(address executor, uint256 nftType, uint256 tokenId,uint256 nftTotalValue, uint256 totalInterest,uint256 planTermLength,uint256 planRewardsAmount,uint256 time)"
 
-echo &"{placeMarketOrderSignature}: 0x{toLowerAscii($keccak256.digest(placeMarketOrderSignature))}"
-echo &"{swapSignature}: 0x{toLowerAscii($keccak256.digest(swapSignature))}"
+echo &"{buySignature}: 0x{toLowerAscii($keccak256.digest(buySignature))}"
+echo &"{BNPLSignature}: 0x{toLowerAscii($keccak256.digest(BNPLSignature))}"
 
-contract(Grid):
-    proc PlaceMakerOrder(orderId: indexed[UInt256], recipient:indexed[Address], bundleId: indexed[Uint64], zero:Bool, boundaryLower: Int24, amount: StUint[128]) {.event.}
+contract(Nouns):
+    proc Buy( executor: indexed[Address], nftType: indexed[Uint256],  tokenId: indexed[Uint256],   nftTotalValue:Uint256, buyRewardsAmount:Uint256 ,time:Uint256 ) {.event.}
+    proc BNPL( executor: indexed[Address],  nftType: indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  downPayment:Uint256, totalInterest:Uint256, planTermLength:Uint256, planRewardsAmount:Uint256, time:Uint256) {.event.}
+    proc Repay( executor:indexed[Address],  nftType:indexed[Uint256], tokenId: indexed[Uint256],  planTermLength: Uint256, planTermProgress:Uint256 ,  repayTotalValue:Uint256, repayInterestValye:Uint256, dueThisTerm:Uint256, time:Uint256) {.event.}
+    proc Redeem( executor:indexed[Address], nftType: indexed[Uint256], tokenId: indexed[Uint256],  nftTotalValue:Uint256,  redeemFee:Uint256,  receivedValue:Uint256,   requestTime:Uint256, time:Uint256) {.event.}
+    proc Liquidation( executor:indexed[Address],  nftType:indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  totalLoanValue:Uint256,  unpaidLoanValue:Uint256,   liquidationValue:Uint256,   dueThisTerm:Uint256, time:Uint256) {.event.}
+    proc Borrow( executor:indexed[Address],  nftType:indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  borrowValue:Uint256,  totalInterest:Uint256, planTermLength:Uint256, planRewardsAmount:Uint256, time:Uint256) {.event.}
+    proc Stake(executor:indexed[Address], nftType: indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  stakePoolId:Uint256,  time:Uint256) {.event.}
+    proc Unstake(executor:indexed[Address], nftType: indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  stakePoolId:Uint256,  time:Uint256) {.event.}
+    proc FinishPlan(executor:indexed[Address], nftType: indexed[Uint256],  tokenId:indexed[Uint256],  nftTotalValue:Uint256,  totalInterest:Uint256, planTermLength:Uint256, planRewardsAmount:Uint256, time:Uint256) {.event.}
 
-contract(SwapRouterHub):
-  proc Swap(sender: indexed[Address], recipient: indexed[Address], amount0: StInt[256],  amount1: StInt[256],  priceX96: Uint256, boundary: Int24) {.event.}
 
-var swapRouterAddress = Address.fromHex("0xf4AE7E15B1012edceD8103510eeB560a9343AFd3")
-var gridAddress = Address.fromHex("0xe8afd1fa3f91fa7387b0537bda5c525752efe821")
+var nounsBNPL = Address.fromHex("")
 
 proc listen() {.async.} =
     var web3 = await newWeb3("ws://127.0.0.1:28545/")
@@ -135,8 +146,6 @@ var router = RestRouter.init(testValidate)
 router.api(MethodGet,"/{address}") do (`address`:string) -> RestApiResponse:
   {.gcsafe.}:
       return RestApiResponse.response("")
-
-
 
 proc main() =
   var tp = Taskpool.new()
